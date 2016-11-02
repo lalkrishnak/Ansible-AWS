@@ -1,0 +1,58 @@
+---
+- include_vars: env.yaml
+- name: Creating security group
+  ec2_group:
+    name: "my_security_group"
+    description: "security group created from Ansible"
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    region: "{{ ec2_region }}"
+    vpc_id: "{{ ec2_vpc }}"
+    rules:
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+    rules_egress:
+        - proto: all
+          cidr_ip: 0.0.0.0/0
+  register: ec2_security
+- name: Creating an EC2 Key
+  ec2_key:
+    name: "ansible-key"
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    region: "{{ ec2_region }}"
+    state: present
+  register: ec2_key
+- name: Saving private key
+  copy: content="{{ ec2_key.key.private_key }}" dest="/root/.ssh/Key.pem" mode=0600 remote_src=True
+  when: ec2_key.changed
+- name: Launching Instance
+  ec2:
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    key_name: "ansible-key"
+    group: "my_security_group"
+    instance_type: "{{ ec2_instance_type }}"
+    image: "{{ ec2_ami }}"
+    vpc_subnet_id: "{{ ec2_subnet_id }}"
+    region: "{{ ec2_region }}"
+    instance_tags: '{"Name":"{{ec2_tag_Name}}","Type":"{{ec2_tag_Type}}","Environment":"{{ec2_tag_Environment}}"}'
+    wait: true
+    count: 1
+    volumes:
+    - device_name: /dev/sda1
+      volume_size: "{{ ec2_volume_size }}"
+      delete_on_termination: true
+  register: ec2_info
+
+- debug: var=item 
+  with_items: ec2_info.instances
+
+- name: Add instance to memory host
+  add_host: hostname={{ item.private_ip }} groupname=ec2
+  with_items: ec2_info.instances
+- name: Wait for Instances to Listen on Port 22
+  wait_for: state=started host={{ item.private_ip }} port=22 delay=60 timeout=320 state=started 
+  with_items: ec2_info.instances
