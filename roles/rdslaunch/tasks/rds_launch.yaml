@@ -1,0 +1,30 @@
+---
+- include_vars: ../../ec2launch/vars/env.yaml
+- include_vars: rds.yaml
+- name: Launching RDS Instance
+  rds:
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    region: "{{ ec2_region }}"
+    command: create
+    instance_name: "{{ rds_name }}"
+    multi_zone: yes
+    subnet: "{{ ec2_subnet_id }}"
+    vpc_security_groups: "{{ rds_security_group }}" 
+    db_engine: MySQL
+    publicly_accessible: no
+    size: "{{ rds_size }}"
+    instance_type: "{{ rds_type }}"
+    username: "{{ rds_username }}"
+    password: "{{ rds_password }}"
+    iops: "{{ iops }}"
+    port: 3306
+    wait: yes
+    wait_timeout: 600
+    tags:
+      Environment: "{{ rds_environment }}"
+      Application: "{{ rds_application }}"
+    register: rds
+- debug: msg="The new db endpoint is {{ rds.instance.endpoint }}"
+- name: Adding environment details to a var file
+  copy: content="rds_endpint{{:}}{{ rds.instance.endpoint }}" dest=../vars/endpoint.yaml
