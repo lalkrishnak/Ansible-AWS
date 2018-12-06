@@ -1,0 +1,41 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  pre_tasks:
+    - set_fact:
+        action: "{{ action }}"
+        ec2_instance_ids: "{{ id }}"
+    - include_vars: 
+        file: variables.yml
+  tasks:
+    - include: "provision.yml"
+      when: action == "create_vm"
+   
+    - include: "delete.yml"
+      when: action == "delete_vm"
+
+    - name: Add new instance to host group
+      add_host:
+        hostname: "{{ item.public_ip }}"
+        groupname: launched
+      with_items: "{{ ec2.instances  }}"
+      when: action == "create_vm"
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22
+        delay: 60
+        timeout: 320
+        state: started
+      with_items: "{{ ec2.instances }}"
+      when: action == "create_vm"
+  
+- name: Configure instance(s)
+  hosts: launched
+  remote_user: ubuntu
+  become: True
+  gather_facts: True
+  tasks:
+    - shell: echo hi

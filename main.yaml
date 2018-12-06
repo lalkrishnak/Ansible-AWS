@@ -1,8 +1,0 @@
----
-- name: Setting up AWS Infrastucture
-  hosts: localhost
-  connection: local
-  gather_facts: no
-  roles:
-    - ec2launch
-    - rdslaunch

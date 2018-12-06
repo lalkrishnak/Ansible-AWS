@@ -1,0 +1,28 @@
+- name: Creating security group
+  ec2_group:
+    name: "my_security_group"
+    description: "security group created from Ansible"
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    region: "{{ ec2_region }}"
+    vpc_id: "{{ ec2_vpc }}"
+    rules:
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+    rules_egress:
+        - proto: all
+          cidr_ip: 0.0.0.0/0
+  register: ec2_security
+- name: Creating an EC2 Key
+  ec2_key:
+    name: "ansible-key"
+    aws_access_key: "{{ ec2_access_key }}"
+    aws_secret_key: "{{ ec2_secret_key }}"
+    region: "{{ ec2_region }}"
+    state: present
+  register: ec2_key
+- name: Saving private key
+  copy: content="{{ ec2_key.key.private_key }}" dest="/root/.ssh/demokey.pem" mode=0600 remote_src=True
+  when: ec2_key.changed
